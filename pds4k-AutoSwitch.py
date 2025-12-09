@@ -7,7 +7,7 @@ import json
 
 debug = 0
 
-EMhost = '192.168.11.190'	# the address of the EM processor
+EMhost = '192.168.0.195'	# the address of the EM processor
 myHost = '0.0.0.0'			# my own address to use for EM subscribe notifications
 
 def EMrpc(host, method, params):
@@ -19,6 +19,11 @@ def EMrpc(host, method, params):
     return(json.loads(EMresponse)['result']['response'])
   except:
     return(json.loads(EMresponse))
+
+def sendEMallTrans():
+  #response = EMrpc(EMhost, 'allTrans', '{"transTime":' + str(time) + '}')
+  response = EMrpc(EMhost, 'allTrans', '{}')
+  return()
 
 def getEMauxes(): # Populate the routing table with the auxes found in EM
   response = EMrpc(EMhost, 'listDestinations', '{"type":2}')
@@ -32,14 +37,31 @@ def getEMauxes(): # Populate the routing table with the auxes found in EM
     #if EMauxPGM != -1: vRouting[aux] = int(EMauxPGM)
   return()
 
+def getPDSpreviewLayer(dest):
+  response = EMrpc(EMhost, 'listContent', '{"id":' + str(dest) + '}')
+  items = response['Layers']
+  if debug: print("Getting ", len(items), " layers from PDS.")
+  for layer in range(len(items)):
+    if debug: print(layer, items[layer]['id'], items[layer]['PvwMode'], items[layer]['LastSrcIdx'])
+    if items[layer]['PvwMode'] == 1:
+      previewLayer = items[layer]['id']
+  return(previewLayer)
+
+def switchPDSlayer(dest, layer, src):
+  response = EMrpc(EMhost, 'changeContent', '{"id":' + str(dest) + ', "Layers":[ {"id":' + str(layer) + ', "LastSrcIdx":' + str(src) + '} ] }')
+  if debug: print("switching: ", dest, layer, src, response)
+  return()
+
+
 def geEMactiveSources():
   response = EMrpc(EMhost, 'listSources', '{}')
   activeSources=[]
   if debug: print("Getting ", len(response), " sources from EM.")
   for item in range(len(response)):
-    if 'InputCfgVideoStatus' in response[item] and response[item]['InputCfgVideoStatus']==1:
+    if 'InputCfgVideoStatus' in response[item]:
+      if debug: print(item, response[item]['id'], response[item]['Name'], response[item]['InputCfgVideoStatus'])
+      if response[item]['InputCfgVideoStatus']==1:
         activeSources.append(response[item]['id'])
-        if debug: print(item, response[item]['Name'], response[item]['InputCfgVideoStatus'])
   return(activeSources)
   
 def sendEMaux(auxID, source): # send the route change to the EM aux
@@ -67,20 +89,24 @@ def EMunsubscribe(): # unsubscribe from the EM notice
   return()
 
 if __name__ == "__main__":
-	switchToOld = []
+	switchTo=''
+	switchToOld = ''
 	try:
-		while True:
-	
-			getEMauxes()
-			switchTo = geEMactiveSources()
-			if debug: print(switchTo, "\n\n\n")
+		while True:	
+			if geEMactiveSources() != []: switchTo = geEMactiveSources()[0]
+			if debug: print(switchTo, "\n")
 			
 			# switch to the first active source or 7 if none
 			## note that this needs to change to EMScreen or something for PDS
-			if switchTo != switchToOld and switchTo != []:
-				sendEMaux(0, switchTo[0])
-			elif switchTo != switchToOld:
-				sendEMaux(0, 7)
+			previewLayer = getPDSpreviewLayer(0)
+			if switchTo != switchToOld and switchTo != '':
+				#sendEMaux(0, switchTo[0])
+				print("switch to", switchTo)
+				switchPDSlayer(0, previewLayer, switchTo)
+				sendEMallTrans()
+			elif switchTo != switchToOld and switchTo == '':
+				print("switch to logo")
+
 			switchToOld = switchTo
 				
 			time.sleep(2)
