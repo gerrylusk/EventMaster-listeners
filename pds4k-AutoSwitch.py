@@ -93,19 +93,16 @@ if __name__ == "__main__":
 	switchToOld = ''
 	try:
 		while True:	
-			if geEMactiveSources() != []: switchTo = geEMactiveSources()[0]
+			activeSources = geEMactiveSources()
+			if activeSources != []: switchTo = activeSources[0]
 			if debug: print(switchTo, "\n")
 			
-			# switch to the first active source or 7 if none
-			## note that this needs to change to EMScreen or something for PDS
+			# switch to the first active source
 			previewLayer = getPDSpreviewLayer(0)
 			if switchTo != switchToOld and switchTo != '':
-				#sendEMaux(0, switchTo[0])
 				print("switch to", switchTo)
 				switchPDSlayer(0, previewLayer, switchTo)
 				sendEMallTrans()
-			elif switchTo != switchToOld and switchTo == '':
-				print("switch to logo")
 
 			switchToOld = switchTo
 				
